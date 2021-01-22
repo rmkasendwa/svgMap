@@ -6,6 +6,7 @@ var rename = require('gulp-rename');
 var uglify = require('gulp-uglify');
 var sourcemaps = require('gulp-sourcemaps');
 var header = require('gulp-header');
+var babel = require('gulp-babel');
 
 var cssHeader = '/*! svgMap | https://github.com/StephanWagner/svgMap | MIT License | Copyright Stephan Wagner | https://stephanwagner.me */' + "\n";
 var jsHeader = cssHeader + '/*! svg-pan-zoom | https://github.com/ariutta/svg-pan-zoom | BSD 2-Clause "Simplified" License | Copyright Andrea Leofreddi <a.leofreddi@itcharm.com> */' + "\n";
@@ -119,6 +120,15 @@ for (let item of scripts) {
 		return gulp
 			.src(item.dest + item.name + '.js')
 			.pipe(rename(item.name + '.min.js'))
+			.pipe(babel({
+				presets: ["@babel/preset-env"],
+				plugins: [
+					"@babel/plugin-syntax-class-properties",
+					"@babel/plugin-proposal-class-properties",
+					"@babel/plugin-proposal-object-rest-spread",
+					"@babel/plugin-proposal-optional-chaining"
+				]
+			}))
 			.pipe(uglify())
 			.pipe(header(jsHeader))
 			.pipe(gulp.dest(item.dest));

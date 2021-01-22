@@ -44,6 +44,22 @@
 			</script>
 		</div>
 
+		<!-- Demo ugandans -->
+
+		<div class="demo-container">
+			<h2>Ugandan Nationalities In the World (fit to data)</h2>
+
+			<div id="svgUgPopulation"></div>
+			<script src="../data/ug-world-population.js"></script>
+			<script>
+				new svgMap({
+					targetElement: document.getElementById('svgUgPopulation'),
+					data: svgMapDataUgPopulation,
+					fitToData: true
+				});
+			</script>
+		</div>
+
 		<!-- Demo person height in German -->
 
 		<div class="demo-container">

@@ -2296,24 +2296,19 @@ svgMap.prototype.init = function(options) {
 	};
 
 	this.options = Object.assign({}, defaultOptions, (options || {}));
+	this.validateOptions(this.options, function() {
+		// Global id
+		this.id = this.options.targetElementID || btoa(Math.random());
 
-	// Abort if target element not found
-	if (!this.options.targetElementID || !document.getElementById(this.options.targetElementID)) this.error('Target element not found');
+		// Cache wrapper element
+		this.wrapper = this.options.targetElementID ? document.getElementById(this.options.targetElementID) : this.options.targetElement;
 
-	// Abort if no data
-	this.options.data || this.error('No data');
+		// Create the map
+		this.createMap();
 
-	// Global id
-	this.id = this.options.targetElementID;
-
-	// Cache wrapper element
-	this.wrapper = document.getElementById(this.options.targetElementID);
-
-	// Create the map
-	this.createMap();
-
-	// Apply map data
-	this.applyData(this.options.data);
+		// Apply map data
+		this.applyData(this.options.data);
+	}.bind(this));
 };
 svgMap.prototype.countries = {
 	AF: 'Afghanistan',
@@ -2589,11 +2584,51 @@ svgMap.prototype.applyData = function(data) {
 			return;
 		}
 		var value = Math.max(min, parseInt(data.values[countryID][data.applyData], 10));
-		var ratio = Math.max(0, Math.min(1, (value - min) / (max - min)));
+		var ratio = max === min ? 1 : Math.max(0, Math.min(1, (value - min) / (max - min)));
 		var color = this.getColor(this.options.colorMax, this.options.colorMin, ratio);
 		element.setAttribute('fill', color);
 	}.bind(this));
-
+	if (this.options.fitToData) {
+		var mapWidth = this.mapImage.width.animVal.value;
+		var mapHeight = this.mapImage.height.animVal.value;
+		var xScaleFactor = mapWidth / 2000;
+		var yScaleFactor = mapHeight / 1001;
+		var points = Object.keys(data.values).map(countryCode => {
+			return this.mapImage.querySelector(`[data-id="${countryCode}"]`);
+		}).filter(path => path != null).reduce((accumulator, path) => {
+			var pathDefinition = (path.attributes.d.value.match(/[A-Za-z][\d.,-]+/g) || []).map(string => {
+				const command = string.charAt(0);
+				const coordinates = string.substring(1).split(string.match(',') ? ',' : /(?<=\d)(?=-)/g).map(coordinate => parseFloat(coordinate.trim()));
+				command.match(/^[Hh]$/g) && coordinates.push(0);
+				command.match(/^[Vv]$/g) && coordinates.unshift(0);
+				return { command, coordinates };
+			});
+			let currentPoint = [...pathDefinition[0].coordinates];
+			pathDefinition.forEach(definition => {
+				if (definition.command.match(/^[A-Z]$/g)) {
+					currentPoint = [...definition.coordinates];
+				} else {
+					const [x, y] = currentPoint;
+					currentPoint = [x + definition.coordinates[0], y + definition.coordinates[1]];
+				}
+				definition.absoluteCoordinates = currentPoint;
+			});
+			pathDefinition.forEach(definition => {
+				definition.absoluteCoordinates = [definition.absoluteCoordinates[0] * xScaleFactor, definition.absoluteCoordinates[1] * yScaleFactor];
+			});
+			return [...accumulator, ...pathDefinition.map(a => a.absoluteCoordinates)];
+		}, []);
+		var minX = Math.min(...points.map(([x]) => x));
+		var minY = Math.min(...points.map(([, y]) => y));
+		var maxX = Math.max(...points.map(([x]) => x));
+		var maxY = Math.max(...points.map(([, y]) => y));
+		var boundingBoxWidth = maxX - minX;
+		var boundingBoxHeight = maxY - minY;
+		var xZoomFactor = mapWidth / boundingBoxWidth;
+		var yZoomFactor = mapHeight / boundingBoxHeight;
+		this.mapPanZoom.reset();
+		this.mapPanZoom.zoomAtPoint(Math.round(Math.min(xZoomFactor, yZoomFactor) * .9), { x: minX + boundingBoxWidth / 2, y: minY + boundingBoxHeight / 2 });
+	}
 };
 svgMap.prototype.emojiFlags = {
 	AF: '🇦🇫',
@@ -3802,6 +3837,18 @@ svgMap.prototype.getHex = function(value) {
 // Get the name of a country by its ID
 svgMap.prototype.getCountryName = function(countryID) {
 	return this.options.countryNames && this.options.countryNames[countryID] ? this.options.countryNames[countryID] : this.countries[countryID];
+};
+
+// Validate instance options
+svgMap.prototype.validateOptions = function(options, callback) {
+	// Abort if target element not found
+	if (!options.targetElementID || !document.getElementById(options.targetElementID)) {
+		if (!options.targetElement) return this.error('Target element not found');
+	}
+
+	// Abort if no data
+	if (!options.data) return this.error('No data');
+	callback();
 };
 // UMD module definition
 (function(window, document) {

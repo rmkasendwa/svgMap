@@ -51,22 +51,17 @@ svgMap.prototype.init = function(options) {
 	};
 
 	this.options = Object.assign({}, defaultOptions, (options || {}));
+	this.validateOptions(this.options, function() {
+		// Global id
+		this.id = this.options.targetElementID || btoa(Math.random());
 
-	// Abort if target element not found
-	if (!this.options.targetElementID || !document.getElementById(this.options.targetElementID)) this.error('Target element not found');
+		// Cache wrapper element
+		this.wrapper = this.options.targetElementID ? document.getElementById(this.options.targetElementID) : this.options.targetElement;
 
-	// Abort if no data
-	this.options.data || this.error('No data');
+		// Create the map
+		this.createMap();
 
-	// Global id
-	this.id = this.options.targetElementID;
-
-	// Cache wrapper element
-	this.wrapper = document.getElementById(this.options.targetElementID);
-
-	// Create the map
-	this.createMap();
-
-	// Apply map data
-	this.applyData(this.options.data);
+		// Apply map data
+		this.applyData(this.options.data);
+	}.bind(this));
 };

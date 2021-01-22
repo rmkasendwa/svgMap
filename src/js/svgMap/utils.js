@@ -42,3 +42,15 @@ svgMap.prototype.getHex = function(value) {
 svgMap.prototype.getCountryName = function(countryID) {
 	return this.options.countryNames && this.options.countryNames[countryID] ? this.options.countryNames[countryID] : this.countries[countryID];
 };
+
+// Validate instance options
+svgMap.prototype.validateOptions = function(options, callback) {
+	// Abort if target element not found
+	if (!options.targetElementID || !document.getElementById(options.targetElementID)) {
+		if (!options.targetElement) return this.error('Target element not found');
+	}
+
+	// Abort if no data
+	if (!options.data) return this.error('No data');
+	callback();
+};
