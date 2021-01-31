@@ -2558,13 +2558,13 @@ svgMap.prototype.countries = {
 	ZW: 'Zimbabwe'
 };
 // Apply the data to the map
-svgMap.prototype.applyData = function(data) {
-
+svgMap.prototype.applyData = function (data) {
+	this.options.data = data;
 	var max = null;
 	var min = null;
 
 	// Get highest and lowest value
-	Object.keys(data.values).forEach(function(countryID) {
+	Object.keys(data.values).forEach(function (countryID) {
 		var value = parseInt(data.values[countryID][data.applyData], 10);
 		max === null && (max = value);
 		min === null && (min = value);
@@ -2576,7 +2576,7 @@ svgMap.prototype.applyData = function(data) {
 	data.data[data.applyData].thresholdMin && (min = Math.max(min, data.data[data.applyData].thresholdMin));
 
 	// Loop through countries and set colors
-	Object.keys(this.countries).forEach(function(countryID) {
+	Object.keys(this.countries).forEach(function (countryID) {
 		var element = document.getElementById(this.id + '-map-country-' + countryID);
 		if (!element) return;
 		if (!data.values[countryID]) {
@@ -2589,10 +2589,9 @@ svgMap.prototype.applyData = function(data) {
 		element.setAttribute('fill', color);
 	}.bind(this));
 	if (this.options.fitToData) {
-		var mapWidth = this.mapImage.width.animVal.value;
-		var mapHeight = this.mapImage.height.animVal.value;
-		var xScaleFactor = mapWidth / 2000;
-		var yScaleFactor = mapHeight / 1001;
+		var { offsetWidth: mapWidth, offsetHeight: mapHeight } = this.mapWrapper;
+		var scaleFactor = mapWidth / (mapWidth > mapHeight ? 2000 : 1001);
+		var mapCenterPoint = [mapWidth / 2, mapHeight / 2];
 		var points = Object.keys(data.values).map(countryCode => {
 			return this.mapImage.querySelector(`[data-id="${countryCode}"]`);
 		}).filter(path => path != null).reduce((accumulator, path) => {
@@ -2614,20 +2613,23 @@ svgMap.prototype.applyData = function(data) {
 				definition.absoluteCoordinates = currentPoint;
 			});
 			pathDefinition.forEach(definition => {
-				definition.absoluteCoordinates = [definition.absoluteCoordinates[0] * xScaleFactor, definition.absoluteCoordinates[1] * yScaleFactor];
+				definition.absoluteCoordinates = [definition.absoluteCoordinates[0] * scaleFactor, definition.absoluteCoordinates[1] * scaleFactor];
 			});
 			return [...accumulator, ...pathDefinition.map(a => a.absoluteCoordinates)];
 		}, []);
-		var minX = Math.min(...points.map(([x]) => x));
-		var minY = Math.min(...points.map(([, y]) => y));
-		var maxX = Math.max(...points.map(([x]) => x));
-		var maxY = Math.max(...points.map(([, y]) => y));
-		var boundingBoxWidth = maxX - minX;
-		var boundingBoxHeight = maxY - minY;
-		var xZoomFactor = mapWidth / boundingBoxWidth;
-		var yZoomFactor = mapHeight / boundingBoxHeight;
-		this.mapPanZoom.reset();
-		this.mapPanZoom.zoomAtPoint(Math.round(Math.min(xZoomFactor, yZoomFactor) * .9), { x: minX + boundingBoxWidth / 2, y: minY + boundingBoxHeight / 2 });
+		this.resetMapZoom();
+		if (points.length > 0) {
+			var minX = Math.min(...points.map(([x]) => x));
+			var minY = Math.min(...points.map(([, y]) => y));
+			var maxX = Math.max(...points.map(([x]) => x));
+			var maxY = Math.max(...points.map(([, y]) => y));
+			var boundingBoxWidth = maxX - minX;
+			var boundingBoxHeight = maxY - minY;
+			var xZoomFactor = 2000 * scaleFactor / boundingBoxWidth;
+			var yZoomFactor = 1001 * scaleFactor / boundingBoxHeight;
+			this.mapPanZoom.pan({ x: mapCenterPoint[0] - (minX + boundingBoxWidth / 2), y: mapCenterPoint[1] - (minY + boundingBoxHeight / 2) });
+			this.mapPanZoom.zoom(Math.round(Math.min(xZoomFactor, yZoomFactor) * .8));
+		}
 	}
 };
 svgMap.prototype.emojiFlags = {
@@ -2878,7 +2880,7 @@ svgMap.prototype.emojiFlags = {
 	ZW: '🇿🇼'
 };
 // Create the SVG map
-svgMap.prototype.createMap = function() {
+svgMap.prototype.createMap = function () {
 
 	// Create the tooltip
 	this.createTooltip();
@@ -2893,11 +2895,11 @@ svgMap.prototype.createMap = function() {
 	// Add controls
 	var mapControlsWrapper = this.createElement('div', 'svgMap-map-controls-wrapper', this.mapWrapper);
 	var zoomContainer = this.createElement('div', 'svgMap-map-controls-zoom', mapControlsWrapper);
-	['in', 'out'].forEach(function(item) {
+	['in', 'out'].forEach(function (item) {
 		var zoomControlName = 'zoomControl' + item.charAt(0).toUpperCase() + item.slice(1);
 		this[zoomControlName] = this.createElement('button', 'svgMap-control-button svgMap-zoom-button svgMap-zoom-' + item + '-button', zoomContainer);
 		this[zoomControlName].type = 'button';
-		this[zoomControlName].addEventListener('click', function() {
+		this[zoomControlName].addEventListener('click', function () {
 			this.zoomMap(item);
 		}.bind(this));
 	}.bind(this));
@@ -2907,7 +2909,7 @@ svgMap.prototype.createMap = function() {
 	this.zoomControlOut.setAttribute('aria-label', 'Zoom out');
 
 	// Fix countries
-	var mapPaths = Object.assign({}, this.mapPaths);
+	var mapPaths = Object.assign({}, svgMap.mapPaths);
 
 	if (!this.options.countries.EH) {
 		mapPaths.MA.d = mapPaths['MA-EH'].d;
@@ -2916,8 +2918,8 @@ svgMap.prototype.createMap = function() {
 	delete mapPaths['MA-EH'];
 
 	// Add map elements
-	Object.keys(mapPaths).forEach(function(countryID) {
-		var countryData = this.mapPaths[countryID];
+	Object.keys(mapPaths).forEach(function (countryID) {
+		var countryData = svgMap.mapPaths[countryID];
 		if (!countryData.d) {
 			return;
 		}
@@ -2931,8 +2933,8 @@ svgMap.prototype.createMap = function() {
 
 		this.mapImage.appendChild(countryElement);
 
-		['mouseenter', 'touchdown'].forEach(function(event) {
-			countryElement.addEventListener(event, function() {
+		['mouseenter', 'touchdown'].forEach(function (event) {
+			countryElement.addEventListener(event, function () {
 				countryElement.closest('g').appendChild(countryElement);
 			}.bind(this));
 		}.bind(this));
@@ -2946,26 +2948,26 @@ svgMap.prototype.createMap = function() {
 
 		// Tooltip events
 		// Add tooltip when touch is used
-		countryElement.addEventListener('touchstart', function(e) {
+		countryElement.addEventListener('touchstart', function (e) {
 			var countryID = countryElement.getAttribute('data-id');
 			this.setTooltipContent(this.getTooltipContent(countryID));
 			this.showTooltip(e);
 			this.moveTooltip(e);
 		}.bind(this));
 
-		countryElement.addEventListener('mouseenter', function(e) {
+		countryElement.addEventListener('mouseenter', function (e) {
 			var countryID = countryElement.getAttribute('data-id');
 			this.setTooltipContent(this.getTooltipContent(countryID));
 			this.showTooltip(e);
 		}.bind(this));
 
-		countryElement.addEventListener('mousemove', function(e) {
+		countryElement.addEventListener('mousemove', function (e) {
 			this.moveTooltip(e);
 		}.bind(this));
 
 		// Hide tooltip when event is mouseleav or touchend
-		['mouseleave', 'touchend'].forEach(function(event) {
-			countryElement.addEventListener(event, function() {
+		['mouseleave', 'touchend'].forEach(function (event) {
+			countryElement.addEventListener(event, function () {
 				this.hideTooltip();
 			}.bind(this));
 		}.bind(this));
@@ -2985,10 +2987,10 @@ svgMap.prototype.createMap = function() {
 		zoomScaleSensitivity: this.options.zoomScaleSensitivity,
 		controlIconsEnabled: false,
 		mouseWheelZoomEnabled: this.options.mouseWheelZoomEnabled, // TODO Only with key pressed
-		onZoom: function() {
+		onZoom: function () {
 			me.setControlStatuses();
 		},
-		beforePan: function(oldPan, newPan) {
+		beforePan: function (oldPan, newPan) {
 			var gutterWidth = me.mapWrapper.offsetWidth * 0.85;
 			var gutterHeight = me.mapWrapper.offsetHeight * 0.85;
 			var sizes = this.getSizes();
@@ -3003,6 +3005,7 @@ svgMap.prototype.createMap = function() {
 		}
 	});
 
+
 	// Init pan zoom
 	this.mapPanZoom.zoom(this.options.initialZoom);
 
@@ -3011,7 +3014,7 @@ svgMap.prototype.createMap = function() {
 }
 
 // Create the tooltip content
-svgMap.prototype.getTooltipContent = function(countryID) {
+svgMap.prototype.getTooltipContent = function (countryID) {
 	var tooltipContentWrapper = this.createElement('div', 'svgMap-tooltip-content-container');
 
 	if (this.options.hideFlag === false) {
@@ -3035,10 +3038,10 @@ svgMap.prototype.getTooltipContent = function(countryID) {
 	if (!this.options.data.values[countryID]) {
 		this.createElement('div', 'svgMap-tooltip-no-data', tooltipContent).innerHTML = this.options.noDataText;
 	} else {
-		tooltipContentTable = '<table>';
-		Object.keys(this.options.data.data).forEach(function(key) {
-			var item = this.options.data.data[key];
+		let tooltipContentTable = '<table>';
+		Object.keys(this.options.data.data).forEach(function (key) {
 			var value = this.options.data.values[countryID][key];
+			var item = typeof this.options.data.data[key] === "function" ? this.options.data.data[key](value) : this.options.data.data[key];
 			item.floatingNumbers && (value = value.toFixed(1));
 			item.thousandSeparator && (value = this.numberWithCommas(value, item.thousandSeparator));
 			value = item.format ? item.format.replace('{0}', '<span>' + value + '</span>') : '<span>' + value + '</span>';
@@ -3051,7 +3054,7 @@ svgMap.prototype.getTooltipContent = function(countryID) {
 };
 
 // Set the disabled statuses for buttons
-svgMap.prototype.setControlStatuses = function() {
+svgMap.prototype.setControlStatuses = function () {
 
 	this.zoomControlIn.classList.remove('svgMap-disabled');
 	this.zoomControlIn.setAttribute('aria-disabled', 'false');
@@ -3069,13 +3072,21 @@ svgMap.prototype.setControlStatuses = function() {
 };
 
 // Zoom map
-svgMap.prototype.zoomMap = function(direction) {
+svgMap.prototype.zoomMap = function (direction) {
 	if (this['zoomControl' + direction.charAt(0).toUpperCase() + direction.slice(1)].classList.contains('svgMap-disabled')) {
 		return false;
 	}
 	this.mapPanZoom[direction == 'in' ? 'zoomIn' : 'zoomOut']();
 };
-svgMap.prototype.mapPaths = {
+
+// Reset map
+svgMap.prototype.resetMapZoom = function (direction) {
+	const viewPort = this.mapWrapper.querySelector('.svg-pan-zoom_viewport');
+	viewPort.style.transition = 'transform .3s';
+	setTimeout(() => viewPort.style.transition = '', 400);
+	this.mapPanZoom.reset();
+};
+svgMap.mapPaths = {
 	"AF": {
 		"d": "M1369.9,333.8h-5.4l-3.8-0.5l-2.5,2.9l-2.1,0.7l-1.5,1.3l-2.6-2.1l-1-5.4l-1.6-0.3v-2l-3.2-1.5l-1.7,2.3l0.2,2.6 l-0.6,0.9l-3.2-0.1l-0.9,3l-2.1-1.3l-3.3,2.1l-1.8-0.8l-4.3-1.4h-2.9l-1.6-0.2l-2.9-1.7l-0.3,2.3l-4.1,1.2l0.1,5.2l-2.5,2l-4,0.9 l-0.4,3l-3.9,0.8l-5.9-2.4l-0.5,8l-0.5,4.7l2.5,0.9l-1.6,3.5l2.7,5.1l1.1,4l4.3,1.1l1.1,4l-3.9,5.8l9.6,3.2l5.3-0.9l3.3,0.8l0.9-1.4 l3.8,0.5l6.6-2.6l-0.8-5.4l2.3-3.6h4l0.2-1.7l4-0.9l2.1,0.6l1.7-1.8l-1.1-3.8l1.5-3.8l3-1.6l-3-4.2l5.1,0.2l0.9-2.3l-0.8-2.5l2-2.7 l-1.4-3.2l-1.9-2.8l2.4-2.8l5.3-1.3l5.8-0.8l2.4-1.2l2.8-0.7L1369.9,333.8L1369.9,333.8z"
 	},
@@ -3851,16 +3862,17 @@ svgMap.prototype.validateOptions = function(options, callback) {
 	callback();
 };
 // UMD module definition
-(function(window, document) {
+(function (window, document) {
 	// AMD
 	if (typeof define === 'function' && define.amd) {
-		define('svgMap', function() {
+		define('svgMap', function () {
 			return svgMap;
 		});
 
 		// CMD
 	} else if (typeof module !== 'undefined' && module.exports) {
 		module.exports = svgMap;
+	} else {
 		window.svgMap = svgMap;
 	}
 })(window, document)

@@ -1,11 +1,11 @@
 // Apply the data to the map
-svgMap.prototype.applyData = function(data) {
-
+svgMap.prototype.applyData = function (data) {
+	this.options.data = data;
 	var max = null;
 	var min = null;
 
 	// Get highest and lowest value
-	Object.keys(data.values).forEach(function(countryID) {
+	Object.keys(data.values).forEach(function (countryID) {
 		var value = parseInt(data.values[countryID][data.applyData], 10);
 		max === null && (max = value);
 		min === null && (min = value);
@@ -17,7 +17,7 @@ svgMap.prototype.applyData = function(data) {
 	data.data[data.applyData].thresholdMin && (min = Math.max(min, data.data[data.applyData].thresholdMin));
 
 	// Loop through countries and set colors
-	Object.keys(this.countries).forEach(function(countryID) {
+	Object.keys(this.countries).forEach(function (countryID) {
 		var element = document.getElementById(this.id + '-map-country-' + countryID);
 		if (!element) return;
 		if (!data.values[countryID]) {
@@ -30,10 +30,9 @@ svgMap.prototype.applyData = function(data) {
 		element.setAttribute('fill', color);
 	}.bind(this));
 	if (this.options.fitToData) {
-		var mapWidth = this.mapImage.width.animVal.value;
-		var mapHeight = this.mapImage.height.animVal.value;
-		var xScaleFactor = mapWidth / 2000;
-		var yScaleFactor = mapHeight / 1001;
+		var { offsetWidth: mapWidth, offsetHeight: mapHeight } = this.mapWrapper;
+		var scaleFactor = mapWidth / (mapWidth > mapHeight ? 2000 : 1001);
+		var mapCenterPoint = [mapWidth / 2, mapHeight / 2];
 		var points = Object.keys(data.values).map(countryCode => {
 			return this.mapImage.querySelector(`[data-id="${countryCode}"]`);
 		}).filter(path => path != null).reduce((accumulator, path) => {
@@ -55,19 +54,22 @@ svgMap.prototype.applyData = function(data) {
 				definition.absoluteCoordinates = currentPoint;
 			});
 			pathDefinition.forEach(definition => {
-				definition.absoluteCoordinates = [definition.absoluteCoordinates[0] * xScaleFactor, definition.absoluteCoordinates[1] * yScaleFactor];
+				definition.absoluteCoordinates = [definition.absoluteCoordinates[0] * scaleFactor, definition.absoluteCoordinates[1] * scaleFactor];
 			});
 			return [...accumulator, ...pathDefinition.map(a => a.absoluteCoordinates)];
 		}, []);
-		var minX = Math.min(...points.map(([x]) => x));
-		var minY = Math.min(...points.map(([, y]) => y));
-		var maxX = Math.max(...points.map(([x]) => x));
-		var maxY = Math.max(...points.map(([, y]) => y));
-		var boundingBoxWidth = maxX - minX;
-		var boundingBoxHeight = maxY - minY;
-		var xZoomFactor = mapWidth / boundingBoxWidth;
-		var yZoomFactor = mapHeight / boundingBoxHeight;
-		this.mapPanZoom.reset();
-		this.mapPanZoom.zoomAtPoint(Math.round(Math.min(xZoomFactor, yZoomFactor) * .9), { x: minX + boundingBoxWidth / 2, y: minY + boundingBoxHeight / 2 });
+		this.resetMapZoom();
+		if (points.length > 0) {
+			var minX = Math.min(...points.map(([x]) => x));
+			var minY = Math.min(...points.map(([, y]) => y));
+			var maxX = Math.max(...points.map(([x]) => x));
+			var maxY = Math.max(...points.map(([, y]) => y));
+			var boundingBoxWidth = maxX - minX;
+			var boundingBoxHeight = maxY - minY;
+			var xZoomFactor = 2000 * scaleFactor / boundingBoxWidth;
+			var yZoomFactor = 1001 * scaleFactor / boundingBoxHeight;
+			this.mapPanZoom.pan({ x: mapCenterPoint[0] - (minX + boundingBoxWidth / 2), y: mapCenterPoint[1] - (minY + boundingBoxHeight / 2) });
+			this.mapPanZoom.zoom(Math.round(Math.min(xZoomFactor, yZoomFactor) * .8));
+		}
 	}
 };

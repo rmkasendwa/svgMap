@@ -1,5 +1,5 @@
 // Create the SVG map
-svgMap.prototype.createMap = function() {
+svgMap.prototype.createMap = function () {
 
 	// Create the tooltip
 	this.createTooltip();
@@ -14,11 +14,11 @@ svgMap.prototype.createMap = function() {
 	// Add controls
 	var mapControlsWrapper = this.createElement('div', 'svgMap-map-controls-wrapper', this.mapWrapper);
 	var zoomContainer = this.createElement('div', 'svgMap-map-controls-zoom', mapControlsWrapper);
-	['in', 'out'].forEach(function(item) {
+	['in', 'out'].forEach(function (item) {
 		var zoomControlName = 'zoomControl' + item.charAt(0).toUpperCase() + item.slice(1);
 		this[zoomControlName] = this.createElement('button', 'svgMap-control-button svgMap-zoom-button svgMap-zoom-' + item + '-button', zoomContainer);
 		this[zoomControlName].type = 'button';
-		this[zoomControlName].addEventListener('click', function() {
+		this[zoomControlName].addEventListener('click', function () {
 			this.zoomMap(item);
 		}.bind(this));
 	}.bind(this));
@@ -28,7 +28,7 @@ svgMap.prototype.createMap = function() {
 	this.zoomControlOut.setAttribute('aria-label', 'Zoom out');
 
 	// Fix countries
-	var mapPaths = Object.assign({}, this.mapPaths);
+	var mapPaths = Object.assign({}, svgMap.mapPaths);
 
 	if (!this.options.countries.EH) {
 		mapPaths.MA.d = mapPaths['MA-EH'].d;
@@ -37,8 +37,8 @@ svgMap.prototype.createMap = function() {
 	delete mapPaths['MA-EH'];
 
 	// Add map elements
-	Object.keys(mapPaths).forEach(function(countryID) {
-		var countryData = this.mapPaths[countryID];
+	Object.keys(mapPaths).forEach(function (countryID) {
+		var countryData = svgMap.mapPaths[countryID];
 		if (!countryData.d) {
 			return;
 		}
@@ -52,8 +52,8 @@ svgMap.prototype.createMap = function() {
 
 		this.mapImage.appendChild(countryElement);
 
-		['mouseenter', 'touchdown'].forEach(function(event) {
-			countryElement.addEventListener(event, function() {
+		['mouseenter', 'touchdown'].forEach(function (event) {
+			countryElement.addEventListener(event, function () {
 				countryElement.closest('g').appendChild(countryElement);
 			}.bind(this));
 		}.bind(this));
@@ -67,26 +67,26 @@ svgMap.prototype.createMap = function() {
 
 		// Tooltip events
 		// Add tooltip when touch is used
-		countryElement.addEventListener('touchstart', function(e) {
+		countryElement.addEventListener('touchstart', function (e) {
 			var countryID = countryElement.getAttribute('data-id');
 			this.setTooltipContent(this.getTooltipContent(countryID));
 			this.showTooltip(e);
 			this.moveTooltip(e);
 		}.bind(this));
 
-		countryElement.addEventListener('mouseenter', function(e) {
+		countryElement.addEventListener('mouseenter', function (e) {
 			var countryID = countryElement.getAttribute('data-id');
 			this.setTooltipContent(this.getTooltipContent(countryID));
 			this.showTooltip(e);
 		}.bind(this));
 
-		countryElement.addEventListener('mousemove', function(e) {
+		countryElement.addEventListener('mousemove', function (e) {
 			this.moveTooltip(e);
 		}.bind(this));
 
 		// Hide tooltip when event is mouseleav or touchend
-		['mouseleave', 'touchend'].forEach(function(event) {
-			countryElement.addEventListener(event, function() {
+		['mouseleave', 'touchend'].forEach(function (event) {
+			countryElement.addEventListener(event, function () {
 				this.hideTooltip();
 			}.bind(this));
 		}.bind(this));
@@ -106,10 +106,10 @@ svgMap.prototype.createMap = function() {
 		zoomScaleSensitivity: this.options.zoomScaleSensitivity,
 		controlIconsEnabled: false,
 		mouseWheelZoomEnabled: this.options.mouseWheelZoomEnabled, // TODO Only with key pressed
-		onZoom: function() {
+		onZoom: function () {
 			me.setControlStatuses();
 		},
-		beforePan: function(oldPan, newPan) {
+		beforePan: function (oldPan, newPan) {
 			var gutterWidth = me.mapWrapper.offsetWidth * 0.85;
 			var gutterHeight = me.mapWrapper.offsetHeight * 0.85;
 			var sizes = this.getSizes();
@@ -124,6 +124,7 @@ svgMap.prototype.createMap = function() {
 		}
 	});
 
+
 	// Init pan zoom
 	this.mapPanZoom.zoom(this.options.initialZoom);
 
@@ -132,7 +133,7 @@ svgMap.prototype.createMap = function() {
 }
 
 // Create the tooltip content
-svgMap.prototype.getTooltipContent = function(countryID) {
+svgMap.prototype.getTooltipContent = function (countryID) {
 	var tooltipContentWrapper = this.createElement('div', 'svgMap-tooltip-content-container');
 
 	if (this.options.hideFlag === false) {
@@ -156,10 +157,10 @@ svgMap.prototype.getTooltipContent = function(countryID) {
 	if (!this.options.data.values[countryID]) {
 		this.createElement('div', 'svgMap-tooltip-no-data', tooltipContent).innerHTML = this.options.noDataText;
 	} else {
-		tooltipContentTable = '<table>';
-		Object.keys(this.options.data.data).forEach(function(key) {
-			var item = this.options.data.data[key];
+		let tooltipContentTable = '<table>';
+		Object.keys(this.options.data.data).forEach(function (key) {
 			var value = this.options.data.values[countryID][key];
+			var item = typeof this.options.data.data[key] === "function" ? this.options.data.data[key](value) : this.options.data.data[key];
 			item.floatingNumbers && (value = value.toFixed(1));
 			item.thousandSeparator && (value = this.numberWithCommas(value, item.thousandSeparator));
 			value = item.format ? item.format.replace('{0}', '<span>' + value + '</span>') : '<span>' + value + '</span>';
@@ -172,7 +173,7 @@ svgMap.prototype.getTooltipContent = function(countryID) {
 };
 
 // Set the disabled statuses for buttons
-svgMap.prototype.setControlStatuses = function() {
+svgMap.prototype.setControlStatuses = function () {
 
 	this.zoomControlIn.classList.remove('svgMap-disabled');
 	this.zoomControlIn.setAttribute('aria-disabled', 'false');
@@ -190,9 +191,17 @@ svgMap.prototype.setControlStatuses = function() {
 };
 
 // Zoom map
-svgMap.prototype.zoomMap = function(direction) {
+svgMap.prototype.zoomMap = function (direction) {
 	if (this['zoomControl' + direction.charAt(0).toUpperCase() + direction.slice(1)].classList.contains('svgMap-disabled')) {
 		return false;
 	}
 	this.mapPanZoom[direction == 'in' ? 'zoomIn' : 'zoomOut']();
+};
+
+// Reset map
+svgMap.prototype.resetMapZoom = function (direction) {
+	const viewPort = this.mapWrapper.querySelector('.svg-pan-zoom_viewport');
+	viewPort.style.transition = 'transform .3s';
+	setTimeout(() => viewPort.style.transition = '', 400);
+	this.mapPanZoom.reset();
 };
